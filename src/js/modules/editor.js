@@ -174,6 +174,12 @@ async function attachListeners() {
   document.querySelector(".compile-tooltip-text").textContent = shortcutText;
 }
 
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 function displayCompileErrors(errs) {
   if (monacoEditor) {
     const model = monacoEditor.getModel();
@@ -226,7 +232,7 @@ function displayCompileErrors(errs) {
   }
   let errContent = "";
   for (const err of errs) {
-    errContent += `<div class="editor-errors-line">${err.errmsg}</div>`;
+    errContent += `<div class="editor-errors-line">${escapeHtml(err.errmsg)}</div>`;
   }
   const displayEl = document.getElementById("editor-errors");
   displayEl.innerHTML = errContent;
