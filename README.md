@@ -1,5 +1,7 @@
 # D2 Playground
 
+[![Production Compile, Container Release & Pages Deploy](https://github.com/kaerez/d2-playground/actions/workflows/deploy.yml/badge.svg)](https://github.com/kaerez/d2-playground/actions/workflows/deploy.yml)
+
 An online runner to play, learn, and create with [D2](https://d2lang.com), the modern diagram scripting language that turns text to diagrams.
 
 <div align="center">
