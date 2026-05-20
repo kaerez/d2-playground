@@ -1,12 +1,12 @@
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
+import * as monaco from "monaco-editor";
 import { createOnigScanner, createOnigString, loadWASM } from "vscode-oniguruma";
 
-// Most of this code is derived from https://github.com/bolinfest/monaco-tm
+// Code derived from https://github.com/bolinfest/monaco-tm
 import { rehydrateRegexps } from "./configuration";
 import { registerLanguages } from "./register";
 import { SimpleLanguageInfoProvider, ScopeNameInfo, TextMateGrammar } from "./providers";
 
-// CHANGED: These now point to the local copies inside the monaco folder
+// Points to the local copies inside the monaco folder now that submodules are gone
 import * as config from "./language-configuration.json";
 import d2Grammar from "./d2.tmLanguage.json";
 
@@ -27,42 +27,14 @@ const grammars: { [scopeName: string]: DemoScopeNameInfo } = {
     language: "d2",
     path: "d2.tmLanguage.json",
   },
-  // "text.html.markdown.d2": {
-  //   language: "markdown",
-  //   path: "markdown.tmLanguage.json",
-  // },
-  // "source.go": {
-  //   language: "go",
-  //   path: "go.tmLanguage.json",
-  // },
-  // "source.js": {
-  //   language: "javascript",
-  //   path: "javascript.tmLanguage.json",
-  // },
-  // "source.shell": {
-  //   language: "shellscript",
-  //   path: "shell.tmLanguage.json",
-  // },
 };
 
-const fetchGrammar = async (scopeName): Promise<TextMateGrammar> => {
+const fetchGrammar = async (scopeName: string): Promise<TextMateGrammar> => {
   let grammar;
   switch (scopeName) {
     case "source.d2":
       grammar = d2Grammar;
       break;
-    // case "text.html.markdown.d2":
-    //   grammar = await import("./markdown.tmLanguage.json");
-    //   break;
-    // case "source.go":
-    //   grammar = await import("shiki/languages/go.tmLanguage.json");
-    //   break;
-    // case "source.js":
-    //   grammar = await import("shiki/languages/javascript.tmLanguage.json");
-    //   break;
-    // case "source.shell":
-    //   grammar = await import("shiki/languages/shellscript.tmLanguage.json");
-    //   break;
   }
   return { type: "json", grammar: JSON.stringify(grammar) };
 };
@@ -72,7 +44,7 @@ const fetchConfiguration = async (): Promise<monaco.languages.LanguageConfigurat
   return config as monaco.languages.LanguageConfiguration;
 };
 
-// Taken from https://github.com/microsoft/vscode/blob/829230a5a83768a3494ebbc61144e7cde9105c73/src/vs/workbench/services/textMate/browser/textMateService.ts#L33-L40
+// Derived from https://github.com/microsoft/vscode/blob/829230a5a83768a3494ebbc61144e7cde9105c73/src/vs/workbench/services/textMate/browser/textMateService.ts#L33-L40
 async function loadVSCodeOnigurumWASM(): Promise<Response | ArrayBuffer> {
   const response = await fetch("../js/vendor/onig.wasm");
   const contentType = response.headers.get("content-type");
@@ -80,13 +52,11 @@ async function loadVSCodeOnigurumWASM(): Promise<Response | ArrayBuffer> {
     return response;
   }
 
-  // Using the response directly only works if the server sets the MIME type 'application/wasm'.
-  // Otherwise, a TypeError is thrown when using the streaming compiler.
-  // We therefore use the non-streaming compiler :(.
+  // Fallback to arrayBuffer if the server doesn't set application/wasm headers
   return response.arrayBuffer();
 }
 
-const getLanguageProvider = async (theme) => {
+const getLanguageProvider = async (theme: any) => {
   const data: ArrayBuffer | Response = await loadVSCodeOnigurumWASM();
   await loadWASM(data);
 
@@ -104,6 +74,7 @@ const getLanguageProvider = async (theme) => {
     onigLib,
     monaco,
   });
+  
   registerLanguages(
     languages,
     (language: string) => provider.fetchLanguageInfo(language),
@@ -113,5 +84,4 @@ const getLanguageProvider = async (theme) => {
   return provider;
 };
 
-// the entry point to monaco-tm utils
 export { getLanguageProvider, SimpleLanguageInfoProvider };
