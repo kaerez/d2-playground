@@ -1,9 +1,12 @@
 import { defineConfig } from "vite";
-import monacoEditorPlugin from "vite-plugin-monaco-editor";
+import monacoEditorPluginModule from "vite-plugin-monaco-editor";
 import { resolve } from "path";
 
+// ESM Interop Fallback: Extracts the function whether Node wraps it in a default object or not
+const monacoEditorPlugin = (monacoEditorPluginModule as any).default || monacoEditorPluginModule;
+
 export default defineConfig({
-  root: resolve(__dirname, "../"), // Maps the root directory up out of js/ to locate index.html cleanly
+  root: resolve(__dirname, "../"), 
   base: "./",
   plugins: [
     monacoEditorPlugin({
@@ -11,7 +14,7 @@ export default defineConfig({
     })
   ],
   build: {
-    outDir: resolve(__dirname, "dist"), // Outputs compilation files directly to /src/js/dist
+    outDir: resolve(__dirname, "dist"), 
     emptyOutDir: true,
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
