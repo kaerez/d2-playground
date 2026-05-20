@@ -1,4 +1,3 @@
-// IMPORTANT: Import from local themes folder now, not the submodule
 import lightTheme from "../themes/light-color-theme.json";
 import darkTheme from "../themes/dark-color-theme.json";
 
@@ -12,11 +11,15 @@ import Sketch from "./sketch.js";
 import Export from "./export.js";
 import Zoom from "./zoom.js";
 import Alert from "./alert.js";
+
 import QueryParams from "../lib/queryparams";
+import Stubs from "../lib/stubs";
 
 const MAX_ERRORS = 5;
+
 let monacoEditor;
 let monacoLineDecorators = [];
+
 let diagramSVG;
 
 async function init() {
@@ -26,14 +29,21 @@ async function init() {
     await switchMonaco(getCurrentTheme());
   });
 
-  await initMonaco(getCurrentTheme());
+  if (useMonaco()) {
+    await initMonaco(getCurrentTheme());
 
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", async (e) => {
-    if (!localStorage.getItem("theme")) {
-      const newTheme = e.matches ? darkTheme : lightTheme;
-      await switchMonaco(newTheme);
-    }
-  });
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .addEventListener("change", async (e) => {
+        // when "theme" is set, system color theme is overriden
+        if (!localStorage.getItem("theme")) {
+          const newTheme = e.matches ? darkTheme : lightTheme;
+          await switchMonaco(newTheme);
+        }
+      });
+  } else {
+    initTextArea();
+  }
 
   attachListeners();
   await compile();
@@ -42,9 +52,15 @@ async function init() {
 async function initMonaco(theme) {
   const editorEl = document.getElementById("editor-main");
   const provider = await getLanguageProvider(theme);
-  
   const monacoTheme = {
-    base: theme.type === "light" ? "vs" : "vs-dark",
+    base:
+      theme.type === "light"
+        ? "vs"
+        : theme.type === "dark"
+        ? "vs-dark"
+        : (() => {
+            throw new Error(`Invalid theme type: ${theme.type}`);
+          })(),
     inherit: true,
     rules: [],
     colors: theme.colors,
@@ -56,12 +72,36 @@ async function initMonaco(theme) {
   monacoEditor = monaco.editor.create(editorEl, {
     language: "d2",
     automaticLayout: true,
+    contextmenu: true,
     theme: theme,
     tabSize: 2,
-    minimap: { enabled: false },
+    autoIndent: "full",
+    minimap: {
+      enabled: false,
+    },
+    scrollbar: {
+      useShadows: false,
+      verticalScrollbarSize: 4,
+      alwaysConsumeMouseWheel: false,
+    },
+    lineNumbersMinChars: 3,
+    overviewRulerLanes: 0,
+    hideCursorInOverviewRuler: true,
+    renderLineHighlight: "none",
+    overviewRulerBorder: false,
     wordWrap: "on",
+    wrappingIndent: "same",
+    padding: {
+      top: 4,
+      bottom: 4,
+    },
   });
 
+  monacoEditor._standaloneKeybindingService.addDynamicKeybinding(
+    "-expandLineSelection",
+    undefined,
+    () => undefined
+  );
   monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, compile);
   monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, compile);
   provider.registry.setTheme(theme);
@@ -72,90 +112,359 @@ async function initMonaco(theme) {
   if (paramScript) {
     try {
       const decodedResult = await window.d2.decode(paramScript);
-      if (decodedResult !== "") initialScript = decodedResult;
-    } catch (err) {}
+      if (decodedResult !== "") {
+        initialScript = decodedResult;
+      } else {
+        QueryParams.del("script");
+      }
+    } catch (err) {
+      console.error("D2: Failed to decode script from URL parameter:", err);
+      QueryParams.del("script");
+    }
   }
   monacoEditor.setValue(initialScript);
+
+  monacoEditor.focus();
   provider.injectCSS();
 }
 
 async function switchMonaco(newTheme) {
   if (!monacoEditor) return;
+
   const currentValue = monacoEditor.getValue();
   const currentPosition = monacoEditor.getPosition();
+
   monacoEditor.dispose();
   await initMonaco(newTheme);
+
   monacoEditor.setValue(currentValue);
-  if (currentPosition) monacoEditor.setPosition(currentPosition);
+  if (currentPosition) {
+    monacoEditor.setPosition(currentPosition);
+  }
 }
 
 function getCurrentTheme() {
   const webTheme = WebTheme.getCurrentTheme();
-  return webTheme === "light" ? lightTheme : darkTheme;
+  const editorTheme =
+    webTheme === "light"
+      ? lightTheme
+      : webTheme === "dark"
+      ? darkTheme
+      : (() => {
+          throw new Error(`Invalid web theme: ${webTheme}`);
+        })();
+  return editorTheme;
 }
 
-function attachListeners() {
+function initTextArea() {
+  const editorEl = document.getElementById("editor-main");
+  editorEl.innerHTML = "<textarea id='mobile-editor'>x -> y</textarea>";
+}
+
+async function attachListeners() {
   document.getElementById("compile-btn").addEventListener("click", compile);
+
+  const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+  const shortcutText = isMac ? "Cmd+S" : "Ctrl+S";
+  document.querySelector(".compile-tooltip-text").textContent = shortcutText;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function displayCompileErrors(errs) {
-  // Truncated for brevity - logic remains identical to your original code
-  // Ensure you keep your original marker/gutter logic here.
+  if (monacoEditor) {
+    const model = monacoEditor.getModel();
+
+    monacoLineDecorators = monacoEditor.deltaDecorations(
+      monacoLineDecorators,
+      errs.map((err) => {
+        const range = parseRange(err.range);
+        return {
+          range: new monaco.Range(
+            range.start.line,
+            range.start.column,
+            range.end.line,
+            range.end.column
+          ),
+          options: {
+            marginClassName: "ErrorLineGutter",
+          },
+        };
+      })
+    );
+
+    monaco.editor.setModelMarkers(
+      model,
+      "parser",
+      errs.map((err) => {
+        const range = parseRange(err.range);
+        return {
+          startLineNumber: range.start.line,
+          endLineNumber: range.end.line,
+          startColumn: range.start.column,
+          endColumn: range.end.column,
+          message: err.errmsg,
+          severity: monaco.MarkerSeverity.Error,
+        };
+      })
+    );
+  }
+
+  if (errs.length > MAX_ERRORS) {
+    errs = [
+      ...errs.slice(0, MAX_ERRORS),
+      {
+        errmsg: `... and ${errs.length - MAX_ERRORS} more error(s)`,
+      },
+    ];
+  }
+  let errContent = "";
+  for (const err of errs) {
+    errContent += `<div class="editor-errors-line">${escapeHtml(err.errmsg)}</div>`;
+  }
+  const displayEl = document.getElementById("editor-errors");
+  displayEl.innerHTML = errContent;
+  displayEl.style.display = "block";
 }
 
 function clearCompileErrors() {
+  if (monacoEditor) {
+    const model = monacoEditor.getModel();
+    monacoEditor.deltaDecorations(monacoLineDecorators, []);
+    monaco.editor.setModelMarkers(model, "parser", []);
+  }
+
   const displayEl = document.getElementById("editor-errors");
   displayEl.innerHTML = "";
   displayEl.style.display = "none";
 }
 
 async function compile() {
-  const btn = document.getElementById("compile-btn");
-  if (btn.classList.contains("btn-disabled")) return;
-  btn.classList.add("btn-disabled");
-
-  let script = monacoEditor.getValue() + "\n";
-  try {
-    const encoded = await window.d2.encode(script);
-    QueryParams.set("script", encoded);
-  } catch (err) {}
-
-  clearCompileErrors();
-  document.getElementById("loading-shroud").style.display = "flex";
-
-  const ascii = Sketch.getASCII();
-  const sketch = Sketch.getValue() === "1" ? true : false;
-  const layout = Layout.getLayout(); // TALA is gone. This will only be Elk or Dagre.
-  let svg;
-
-  try {
-    const compileRequest = {
-      fs: { index: script },
-      options: { layout, sketch: ascii ? false : sketch, ascii }
-    };
-    const compiled = await window.d2.compile(compileRequest);
-    const renderOptions = { layout, sketch: ascii ? false : sketch, ascii, themeID: Theme.getThemeID(), center: true };
-    svg = await window.d2.render(compiled.diagram, renderOptions);
-  } catch (err) {
-    document.getElementById("loading-shroud").style.display = "none";
-    btn.classList.remove("btn-disabled");
+  if (document.getElementById("compile-btn").classList.contains("btn-disabled")) {
     return;
   }
 
-  document.getElementById("loading-shroud").style.display = "none";
-  diagramSVG = svg;
-  
-  const renderEl = document.getElementById("render-svg");
-  if (ascii) {
-    renderEl.innerHTML = `<pre>${svg}</pre>`;
-  } else {
-    renderEl.innerHTML = svg;
-    renderEl.lastChild.id = "diagram";
-    Zoom.attach();
+  lockCompileBtn();
+  let script = getScript();
+
+  if (!script.endsWith("\n")) {
+    script += "\n";
   }
-  
-  btn.classList.remove("btn-disabled");
+
+  let encoded;
+  try {
+    encoded = await window.d2.encode(script);
+    if (!encoded) {
+      const urlEncoded = encodeURIComponent(window.location.href);
+      Alert.show(
+        `D2 encountered an encoding error. Please help improve D2 by opening an issue on&nbsp;<a href="https://github.com/terrastruct/d2/issues/new?body=${urlEncoded}">Github</a>.`,
+        6000
+      );
+      unlockCompileBtn();
+      return;
+    }
+  } catch (err) {
+    console.error("D2 Compile: Encode failed", err);
+    const urlEncoded = encodeURIComponent(window.location.href);
+    Alert.show(
+      `D2 encountered an encoding error. Please help improve D2 by opening an issue on&nbsp;<a href="https://github.com/terrastruct/d2/issues/new?body=${urlEncoded}">Github</a>.`,
+      6000
+    );
+    unlockCompileBtn();
+    return;
+  }
+
+  QueryParams.set("script", encoded);
+
+  const sketch = Sketch.getValue() === "1" ? true : false;
+  const ascii = Sketch.getASCII();
+  const layout = Layout.getLayout();
+  let svg;
+
+  clearCompileErrors();
+  showLoader();
+
+  const compileRequest = {
+    fs: { index: script },
+    options: {
+      layout,
+      sketch: ascii ? false : sketch,
+      ascii,
+      forceAppendix: false,
+      target: "",
+      animateInterval: 0,
+      salt: "",
+      noXMLTag: false,
+    },
+  };
+
+  let compiled;
+  try {
+    compiled = await window.d2.compile(compileRequest);
+    if (compiled.fs && compiled.fs.index) {
+      script = compiled.fs.index;
+      setScript(script);
+    }
+  } catch (err) {
+    if (err.message && err.message.startsWith("[")) {
+      try {
+        const errorData = JSON.parse(err.message);
+        if (Array.isArray(errorData) && errorData.length > 0 && errorData[0].errmsg) {
+          displayCompileErrors(errorData);
+          hideLoader();
+          unlockCompileBtn();
+          return;
+        }
+      } catch (parseErr) {}
+    }
+    const urlEncoded = encodeURIComponent(window.location.href);
+    hideLoader();
+    unlockCompileBtn();
+    Alert.show(
+      `D2 encountered a compile error: "${err.message}". Please help improve D2 by opening an issue on&nbsp;<a href="https://github.com/terrastruct/d2/issues/new?body=${urlEncoded}">Github</a>.`,
+      6000
+    );
+    return;
+  }
+  const renderOptions = {
+    layout: layout,
+    sketch: ascii ? false : sketch,
+    ascii,
+    themeID: Theme.getThemeID(),
+    center: true,
+  };
+  try {
+    svg = await window.d2.render(compiled.diagram, renderOptions);
+  } catch (renderErr) {
+    console.error("failed to render", renderErr);
+    const urlEncoded = encodeURIComponent(window.location.href);
+    Alert.show(
+      `D2 encountered an unexpected error. Please help improve D2 by opening an issue on&nbsp;<a href="https://github.com/terrastruct/d2/issues/new?body=${urlEncoded}">Github</a>.`,
+      6000
+    );
+  }
+  hideLoader();
+  unlockCompileBtn();
+
+  const renderEl = document.getElementById("render-svg");
+  const containerWidth = renderEl.getBoundingClientRect().width;
+  const containerHeight = renderEl.getBoundingClientRect().height;
+
+  diagramSVG = svg;
+
+  if (ascii) {
+    Zoom.detach();
+    renderEl.style.userSelect = "text";
+    renderEl.style.webkitUserSelect = "text";
+    renderEl.style.mozUserSelect = "text";
+    renderEl.style.msUserSelect = "text";
+    renderEl.style.pointerEvents = "auto";
+    renderEl.innerHTML = `<pre id="ascii-output" style="font-family: monospace; white-space: pre; overflow: auto; width: 100%; height: 100%; user-select: text !important; cursor: text; -webkit-user-select: text !important; -moz-user-select: text !important; -ms-user-select: text !important; pointer-events: auto !important; position: relative; z-index: 1; padding: 16px; box-sizing: border-box; margin: 0; color: var(--steel-900);">${svg}</pre>`;
+  } else {
+    renderEl.style.userSelect = "";
+    renderEl.style.webkitUserSelect = "";
+    renderEl.style.mozUserSelect = "";
+    renderEl.style.msUserSelect = "";
+    renderEl.style.pointerEvents = "";
+    renderEl.innerHTML = svg;
+
+    const svgEl = renderEl.lastChild;
+
+    svgEl.id = "diagram";
+    Zoom.attach();
+
+    svgEl.setAttribute("width", `${containerWidth}px`);
+    svgEl.setAttribute("height", `${containerHeight}px`);
+  }
+  unlockCompileBtn();
   Export.updateExportButton();
 }
 
-export default { init, getDiagramSVG: () => diagramSVG, getScript: () => monacoEditor.getValue(), getEditor: () => monacoEditor, compile };
+function parseRange(rs) {
+  const i = rs.lastIndexOf("-");
+  if (i === -1) {
+    throw new Error(`missing end field in range ${rs}`);
+  }
+  const end = rs.substring(i + 1);
+
+  const j = rs.lastIndexOf(",", i);
+  if (j === -1) {
+    throw new Error(`missing start field in range ${rs}`);
+  }
+  const start = rs.substring(j + 1, i);
+  const path = rs.substring(0, j);
+
+  return {
+    path: path,
+    start: parsePosition(start),
+    end: parsePosition(end),
+  };
+}
+
+function parsePosition(ps) {
+  const fields = ps.split(":");
+  if (fields.length !== 3) {
+    throw new Error(`expected three fields in position ${ps}`);
+  }
+  return {
+    line: Number(fields[0]) + 1,
+    column: Number(fields[1]) + 1,
+    byte: Number(fields[2]),
+  };
+}
+
+function showLoader() {
+  document.getElementById("loading-shroud").style.display = "flex";
+}
+function hideLoader() {
+  document.getElementById("loading-shroud").style.display = "none";
+}
+
+function lockCompileBtn() {
+  document.getElementById("compile-btn").classList.add("btn-disabled");
+}
+
+function unlockCompileBtn() {
+  document.getElementById("compile-btn").classList.remove("btn-disabled");
+}
+
+function getScript() {
+  if (monacoEditor) {
+    return getEditor().getValue();
+  }
+  return document.getElementById("mobile-editor").value;
+}
+
+function setScript(script) {
+  if (monacoEditor) {
+    getEditor().setValue(script);
+  } else {
+    document.getElementById("mobile-editor").value = script;
+  }
+}
+
+function getEditor() {
+  return monacoEditor;
+}
+
+function getDiagramSVG() {
+  return diagramSVG;
+}
+
+function useMonaco() {
+  return true;
+}
+
+export default {
+  init,
+  displayCompileErrors,
+  clearCompileErrors,
+  getDiagramSVG,
+  getScript,
+  getEditor,
+  compile,
+};
