@@ -1,4 +1,9 @@
-name: Automated Build, Docker Release & Pages Deployment
+# ============================================
+# /.github/workflows/deploy.yml
+# ============================================
+# Author: Erez Kalman - KSEC License: Commercial
+
+name: Production Compile, Container Release & Pages Deploy
 
 on:
   push:
@@ -12,7 +17,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "global-deployment-pipeline"
+  group: "global-release-pipeline"
   cancel-in-progress: true
 
 jobs:
@@ -22,38 +27,38 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Setup Bun Workspace Environment
+      - name: Instantiate Bun Workspace Engine
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      - name: Run Core Module Installation
+      - name: Execute Node Dependency Resolution
         run: |
           cd src/js
           bun install
 
-      - name: Build Web Application via Vite
+      - name: Build Un-Hashed Production Distribution Assets
         run: |
           cd src/js
           bun run build
 
-      - name: Cross-Compile Standalone Platform Binaries
+      - name: Cross-Compile Standalone Singular Binary Executables
         run: |
           mkdir dist-bin
           cd src/js
           bun run build:executables
 
-      - name: Package Pre-Built Web Deployment Assets
+      - name: Stage Pre-Built Distribution Archives
         run: |
           mkdir release-artifacts
-          # 1. Stage the raw single file compiled system executables
+          # 1. Stage the standalone single-file executables with no companion folders
           cp dist-bin/* release-artifacts/
           
-          # 2. Package raw distribution folders for standard web server configuration environments
+          # 2. Package raw un-hashed folders for instant web server hosting configurations
           cd src/js
           zip -r "../../release-artifacts/d2-playground-web-assets.zip" dist/* ../../public/onig.wasm
           
-          # 3. Include Docker Compose configurations inside release payloads
+          # 3. Inject orchestration configuration files into the artifact list
           cp ../../docker-compose.yml ../../release-artifacts/
 
       - name: Generate Chronological SemVer Tag Version
@@ -62,7 +67,7 @@ jobs:
           TAG_ID="v1.0.$(date +'%Y%m%d%H%M%S')"
           echo "RELEASE_TAG=${TAG_ID}" >> $GITHUB_ENV
 
-      - name: Set up Docker Buildx Runner
+      - name: Set up Docker Buildx Builder Engine
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry (GHCR)
@@ -72,7 +77,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Production Container Image
+      - name: Compile and Push Container Image to Registry
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -84,30 +89,30 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Push All Compiled Artifacts to GitHub Releases
+      - name: Publish Compilation Packages to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          name: "D2 Playground System Package Release Hub (${{ env.RELEASE_TAG }})"
+          name: "D2 Playground System Release Suite (${{ env.RELEASE_TAG }})"
           body: |
             ### Standalone Single-File System Executables
-            Download the binary matching your system architecture framework directly. No runtime directory wrappers or environment hooks required.
+            Download the binary matching your core platform directly. It operates completely independently as a single artifact with no external asset folder dependencies.
             
-            ### Docker Deployment Configuration
-            The production instance container is compiled and stored on the GitHub Container Registry. Spin up the environment by copying `docker-compose.yml` into your environment and executing:
+            ### Container Composition Blueprint
+            The production container image is securely deployed onto GHCR. Spin up your local infrastructure using your layout's `docker-compose.yml` asset via:
             ```bash
             docker compose up -d
             ```
             
-            ### Pre-Built Plain Web Hosting Assets
-            Deploy the playground straight to Apache, Nginx, or IIS without installing a local compilation pipeline by dropping the unpacked contents of `d2-playground-web-assets.zip` straight into your server instance layout root index.
+            ### Pre-Compiled Web Hosting Assets (No Rebuild Needed)
+            Unpack `d2-playground-web-assets.zip` and move the static folders directly into the public root path index of Apache, Nginx, IIS, or Caddy to host your own sandbox instance instantly.
           draft: false
           prerelease: false
           files: release-artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Core Assets to GitHub Pages Pipeline
+      - name: Upload Distribution Bundle to Pages Engine Pipeline
         uses: actions/upload-pages-artifact@v3
         with:
           path: './src/js/dist'
