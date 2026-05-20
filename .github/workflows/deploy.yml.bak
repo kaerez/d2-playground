@@ -1,0 +1,62 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: ["main", "master"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install & Build SPA
+        run: |
+          cd src/js
+          bun install
+          bun run build
+
+      - name: Compile Cross-Platform Binaries
+        run: |
+          mkdir dist-bin
+          cd src/js
+          bun run build:executables
+
+      - name: Upload Binaries as Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: d2-playground-binaries
+          path: dist-bin/
+          retention-days: 7
+
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './src/js/dist'
+
+  deploy-pages:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
