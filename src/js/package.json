@@ -16,6 +16,6 @@
   },
   "devDependencies": {
     "vite": "^5.0.0",
-    "vite-plugin-monaco-editor": "^3.1.0"
+    "vite-plugin-monaco-editor": "latest"
   }
 }
