@@ -258,22 +258,22 @@
 
 @font-face {
   font-family: "Source Sans Pro";
-  src: url("../fonts/SourceSansPro-Regular.ttf");
+  src: url("/fonts/SourceSansPro-Regular.ttf");
 }
 
 @font-face {
   font-family: "Source Sans Pro Bold";
-  src: url("../fonts/SourceSansPro-Bold.ttf");
+  src: url("/fonts/SourceSansPro-Bold.ttf");
 }
 
 @font-face {
   font-family: "Source Sans Pro Medium";
-  src: url("../fonts/SourceSansPro-SemiBold.ttf");
+  src: url("/fonts/SourceSansPro-SemiBold.ttf");
 }
 
 @font-face {
   font-family: "Source Code Pro";
-  src: url("../fonts/SourceCodePro-Regular.ttf");
+  src: url("/fonts/SourceCodePro-Regular.ttf");
 }
 
 * {

@@ -13,7 +13,7 @@
 }
 
 .iPadShowKeyboard {
-  background: url("../assets/icons/keyboard.svg") center center no-repeat !important;
+  background: url("/assets/icons/keyboard.svg") center center no-repeat !important;
   width: 34px !important;
   height: 34px !important;
   border-radius: 50% !important;
