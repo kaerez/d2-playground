@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  d2-playground:
+    image: ghcr.io/${GITHUB_REPOSITORY,,}/d2-playground:latest
+    container_name: d2-playground-sandbox
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
