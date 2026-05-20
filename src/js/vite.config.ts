@@ -3,7 +3,7 @@ import monacoEditorPlugin from "vite-plugin-monaco-editor";
 
 export default defineConfig({
   plugins: [
-    // This plugin dynamically partitions Monaco's web workers into split distribution chunks
+    // Automatically compiles and structures the web workers for Monaco at build time
     monacoEditorPlugin({
       languages: ["json"]
     })
@@ -11,7 +11,6 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    // Ensures large underlying WASM or library chunks bundle cleanly
     chunkSizeWarningLimit: 2000
   }
 });
