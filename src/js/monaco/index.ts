@@ -1,7 +1,5 @@
 import * as monaco from "monaco-editor";
 import { createOnigScanner, createOnigString, loadWASM } from "vscode-oniguruma";
-
-// Most of this code is derived from https://github.com/bolinfest/monaco-tm
 import { rehydrateRegexps } from "./configuration";
 import { registerLanguages } from "./register";
 import { SimpleLanguageInfoProvider, ScopeNameInfo, TextMateGrammar } from "./providers";
@@ -44,8 +42,8 @@ const fetchConfiguration = async (): Promise<monaco.languages.LanguageConfigurat
 };
 
 async function loadVSCodeOnigurumWASM(): Promise<Response | ArrayBuffer> {
-  // Pull from absolute public path so nested URL routing query strings do not break lookups
-  const response = await fetch("/onig.wasm");
+  // FIX: Changed absolute path to relative path to survive GitHub Pages sub-directory hosting
+  const response = await fetch("./onig.wasm");
   const contentType = response.headers.get("content-type");
   if (contentType === "application/wasm") {
     return response;
