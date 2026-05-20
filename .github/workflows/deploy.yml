@@ -1,8 +1,6 @@
 name: Production Compile, Container Release & Pages Deploy
 
 on:
-  push:
-    branches: ["main", "master"]
   workflow_dispatch:
 
 permissions:
@@ -18,6 +16,9 @@ concurrency:
 jobs:
   build-and-compile:
     runs-on: ubuntu-latest
+    # Define outputs natively at the job level so dependent deployment jobs can read the tag safely
+    outputs:
+      release_tag: ${{ steps.version_tag.outputs.TAG_ID }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -32,21 +33,23 @@ jobs:
           cd src/js
           bun install
 
+      - name: Generate Unique Build Timestamp & Inject Cache Buster
+        # FIXED: Removed bash variable assignment to GITHUB_ENV. Using native GITHUB_OUTPUT.
+        id: version_tag
+        run: |
+          TIMESTAMP=$(date +'%Y%m%d%H%M%S')
+          GENERATED_TAG="v1.0.${TIMESTAMP}"
+          echo "TAG_ID=${GENERATED_TAG}" >> "$GITHUB_OUTPUT"
+          
+          # Inject cache buster strings directly into the compiled output HTML file
+          sed -i "s/main.js\"/main.js?v=${TIMESTAMP}\"/g" src/js/dist/index.html
+
       - name: Build Un-Hashed Production Distribution Assets
         run: |
           cd src/js
           bun run build
 
-      - name: Generate Unique Build Timestamp & Inject Cache Buster
-        run: |
-          TIMESTAMP=$(date +'%Y%m%d%H%M%S')
-          TAG_ID="v1.0.${TIMESTAMP}"
-          echo "RELEASE_TAG=${TAG_ID}" >> $GITHUB_ENV
-          
-          # Inject cache buster strings directly into the compiled output HTML file
-          sed -i "s/main.js\"/main.js?v=${TIMESTAMP}\"/g" src/js/dist/index.html
-
-      - name: Cross-Compile Standalone Binary Executables
+      - name: Cross-Compile Standalone Singular Binary Executables
         run: |
           mkdir dist-bin
           cd src/js
@@ -55,24 +58,10 @@ jobs:
       - name: Stage Pre-Built Distribution Archives
         run: |
           mkdir release-artifacts
+          cp dist-bin/* release-artifacts/
           
-          # 1. Bundle local cross-compiled executables together with their static companion folders
-          cd dist-bin
-          for binary in *; do
-            mkdir -p "temp_pkg/src/js" "temp_pkg/public"
-            cp "$binary" "temp_pkg/"
-            cp -r "../src/js/dist" "temp_pkg/src/js/dist"
-            cp -r "../../public" "temp_pkg/public"
-            cp "../../server.ts" "temp_pkg/"
-            
-            zip -r "../../release-artifacts/${binary}-standalone-bundle.zip" temp_pkg/*
-            rm -rf temp_pkg
-          done
-          cd ..
-          
-          # 2. Package raw un-hashed folders for instant web server hosting configurations
           cd src/js
-          zip -r "../../release-artifacts/d2-playground-web-assets.zip" dist/* ../../public/*
+          zip -r "../../release-artifacts/d2-playground-web-assets.zip" dist/* ../../public/onig.wasm
           cp ../../docker-compose.yml ../../release-artifacts/
 
       - name: Set up Docker Buildx Builder Engine
@@ -93,18 +82,18 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/d2-playground:latest
-            ghcr.io/${{ github.repository_owner }}/d2-playground:${{ env.RELEASE_TAG }}
+            ghcr.io/${{ github.repository_owner }}/d2-playground:${{ steps.version_tag.outputs.TAG_ID }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Publish Compilation Packages to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          name: "D2 Playground System Release Suite (${{ env.RELEASE_TAG }})"
+          tag_name: ${{ steps.version_tag.outputs.TAG_ID }}
+          name: "D2 Playground System Release Suite (${{ steps.version_tag.outputs.TAG_ID }})"
           body: |
-            ### Standalone Local Server Bundles
-            Download the zip matching your core platform. Extract the folder completely, and execute the binary file to launch the sandbox environment with all media assets securely served locally.
+            ### Standalone Single-File System Executables
+            Download the binary matching your core platform directly. It operates completely independently as a single artifact with no external asset folder dependencies.
             
             ### Container Composition Blueprint
             The production container image is securely deployed onto GHCR. Spin up your local infrastructure using your layout's `docker-compose.yml` asset via:
