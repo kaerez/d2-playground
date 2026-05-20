@@ -1,8 +1,3 @@
-# ============================================
-# /.github/workflows/deploy.yml
-# ============================================
-# Author: Erez Kalman - KSEC License: Commercial
-
 name: Production Compile, Container Release & Pages Deploy
 
 on:
