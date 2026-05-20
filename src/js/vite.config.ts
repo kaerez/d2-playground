@@ -3,13 +3,15 @@ import monacoEditorPlugin from "vite-plugin-monaco-editor";
 
 export default defineConfig({
   plugins: [
-    // Automatically injects, chunks, and structures the web workers for Monaco at build time
+    // This plugin dynamically partitions Monaco's web workers into split distribution chunks
     monacoEditorPlugin({
-      languages: ["json"] // Enables tokenizers used internally for schema configuration mappings
+      languages: ["json"]
     })
   ],
   build: {
     outDir: "dist",
-    emptyOutDir: true
+    emptyOutDir: true,
+    // Ensures large underlying WASM or library chunks bundle cleanly
+    chunkSizeWarningLimit: 2000
   }
 });
