@@ -43,11 +43,10 @@ jobs:
           TAG_ID="v1.0.${TIMESTAMP}"
           echo "RELEASE_TAG=${TAG_ID}" >> $GITHUB_ENV
           
-          # FIX: Vite strips query params during the build. 
-          # We must use sed on the final compiled output string to append the parameter.
+          # Inject cache buster strings directly into the compiled output HTML file
           sed -i "s/main.js\"/main.js?v=${TIMESTAMP}\"/g" src/js/dist/index.html
 
-      - name: Cross-Compile Standalone Singular Binary Executables
+      - name: Cross-Compile Standalone Binary Executables
         run: |
           mkdir dist-bin
           cd src/js
@@ -56,10 +55,24 @@ jobs:
       - name: Stage Pre-Built Distribution Archives
         run: |
           mkdir release-artifacts
-          cp dist-bin/* release-artifacts/
           
+          # 1. Bundle local cross-compiled executables together with their static companion folders
+          cd dist-bin
+          for binary in *; do
+            mkdir -p "temp_pkg/src/js" "temp_pkg/public"
+            cp "$binary" "temp_pkg/"
+            cp -r "../src/js/dist" "temp_pkg/src/js/dist"
+            cp -r "../../public" "temp_pkg/public"
+            cp "../../server.ts" "temp_pkg/"
+            
+            zip -r "../../release-artifacts/${binary}-standalone-bundle.zip" temp_pkg/*
+            rm -rf temp_pkg
+          done
+          cd ..
+          
+          # 2. Package raw un-hashed folders for instant web server hosting configurations
           cd src/js
-          zip -r "../../release-artifacts/d2-playground-web-assets.zip" dist/* ../../public/onig.wasm
+          zip -r "../../release-artifacts/d2-playground-web-assets.zip" dist/* ../../public/*
           cp ../../docker-compose.yml ../../release-artifacts/
 
       - name: Set up Docker Buildx Builder Engine
@@ -90,8 +103,8 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           name: "D2 Playground System Release Suite (${{ env.RELEASE_TAG }})"
           body: |
-            ### Standalone Single-File System Executables
-            Download the binary matching your core platform directly. It operates completely independently as a single artifact with no external asset folder dependencies.
+            ### Standalone Local Server Bundles
+            Download the zip matching your core platform. Extract the folder completely, and execute the binary file to launch the sandbox environment with all media assets securely served locally.
             
             ### Container Composition Blueprint
             The production container image is securely deployed onto GHCR. Spin up your local infrastructure using your layout's `docker-compose.yml` asset via:
