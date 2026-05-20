@@ -8,6 +8,10 @@ const monacoEditorPlugin = (monacoEditorPluginModule as any).default || monacoEd
 export default defineConfig({
   root: resolve(__dirname, "../"), 
   base: "./",
+  
+  // FIXED: Explicitly map the public directory so Vite can find your fonts, SVGs, and legacy scripts
+  publicDir: resolve(__dirname, "../../public"), 
+  
   plugins: [
     monacoEditorPlugin({
       languages: ["json"]
@@ -16,7 +20,6 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "dist"), 
     emptyOutDir: true,
-    // FIXED: Increased to 15000 to silence the expected 11MB bundle warning
     chunkSizeWarningLimit: 15000, 
     rollupOptions: {
       output: {
