@@ -32,6 +32,17 @@ jobs:
           cd src/js
           bun install
 
+      - name: Generate Unique Build Timestamp & Inject Cache Buster
+        id: version_tag
+        run: |
+          # Generate timestamp format: YYYYMMDDHHMMSS
+          TIMESTAMP=$(date +'%Y%m%d%H%M%S')
+          TAG_ID="v1.0.${TIMESTAMP}"
+          echo "RELEASE_TAG=${TAG_ID}" >> $GITHUB_ENV
+          
+          # Dynamic Replace: Inject the un-hashed token into index.html prior to Vite bundling
+          sed -i "s/__BUILD_VERSION__/${TIMESTAMP}/g" src/index.html
+
       - name: Build Un-Hashed Production Distribution Assets
         run: |
           cd src/js
@@ -55,12 +66,6 @@ jobs:
           
           # 3. Inject orchestration configuration files into the artifact list
           cp ../../docker-compose.yml ../../release-artifacts/
-
-      - name: Generate Chronological SemVer Tag Version
-        id: version_tag
-        run: |
-          TAG_ID="v1.0.$(date +'%Y%m%d%H%M%S')"
-          echo "RELEASE_TAG=${TAG_ID}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx Builder Engine
         uses: docker/setup-buildx-action@v3
