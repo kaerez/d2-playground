@@ -1,3 +1,4 @@
+{
   "name": "d2-playground-static",
   "version": "1.0.0",
   "description": "Pure SPA D2 Playground (Bun/Wasm/Un-hashed Optimized)",
