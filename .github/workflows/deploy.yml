@@ -16,7 +16,6 @@ concurrency:
 jobs:
   build-and-compile:
     runs-on: ubuntu-latest
-    # Define outputs natively at the job level so dependent deployment jobs can read the tag safely
     outputs:
       release_tag: ${{ steps.version_tag.outputs.TAG_ID }}
     steps:
@@ -33,21 +32,20 @@ jobs:
           cd src/js
           bun install
 
+      - name: Build Un-Hashed Production Distribution Assets
+        run: |
+          cd src/js
+          bun run build
+
       - name: Generate Unique Build Timestamp & Inject Cache Buster
-        # FIXED: Removed bash variable assignment to GITHUB_ENV. Using native GITHUB_OUTPUT.
         id: version_tag
         run: |
           TIMESTAMP=$(date +'%Y%m%d%H%M%S')
           GENERATED_TAG="v1.0.${TIMESTAMP}"
           echo "TAG_ID=${GENERATED_TAG}" >> "$GITHUB_OUTPUT"
           
-          # Inject cache buster strings directly into the compiled output HTML file
+          # Inject cache buster strings directly into the newly compiled output HTML file
           sed -i "s/main.js\"/main.js?v=${TIMESTAMP}\"/g" src/js/dist/index.html
-
-      - name: Build Un-Hashed Production Distribution Assets
-        run: |
-          cd src/js
-          bun run build
 
       - name: Cross-Compile Standalone Singular Binary Executables
         run: |
