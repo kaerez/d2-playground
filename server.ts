@@ -1,12 +1,11 @@
 import { serve } from "bun";
 
-// COMPILE-TIME INLINING: Assets are burned straight into the executable's core binary memory data array
+// COMPILE-TIME INLINING: Burn the predictable un-hashed assets straight into the core binary context heap memory
 import indexHtml from "./src/js/dist/index.html" with { type: "text" };
-import mainJs from "./src/js/dist/assets/index.js" with { type: "text" };
-import mainCss from "./src/js/dist/assets/index.css" with { type: "text" };
+import mainJs from "./src/js/dist/assets/main.js" with { type: "text" };
+import mainCss from "./src/js/dist/assets/main.css" with { type: "text" };
 import onigWasm from "./public/onig.wasm" with { type: "file" };
 
-// Inline the un-hashed background web workers compiled via the Monaco plugin hook
 const workers: { [key: string]: string } = {
   "/assets/json.worker.js": await import("./src/js/dist/assets/json.worker.js") with { type: "text" },
   "/assets/editor.worker.js": await import("./src/js/dist/assets/editor.worker.js") with { type: "text" }
@@ -21,25 +20,21 @@ serve({
     const url = new URL(req.url);
     const path = url.pathname;
 
-    // Route top-level root pathings directly to the inlined index template string
     if (path === "/" || path === "/index.html") {
       return new Response(indexHtml, { headers: { "Content-Type": "text/html" } });
     }
 
-    // Serve core packaged resource chunks from application memory storage cells
-    if (path === "/assets/index.js" || path.endsWith("out.js")) {
+    if (path === "/assets/main.js" || path.endsWith("out.js")) {
       return new Response(mainJs, { headers: { "Content-Type": "application/javascript" } });
     }
-    if (path === "/assets/index.css" || path.endsWith("out.css")) {
+    if (path === "/assets/main.css" || path.endsWith("out.css")) {
       return new Response(mainCss, { headers: { "Content-Type": "text/css" } });
     }
 
-    // Match and dispatch deterministic Monaco worker calls directly from RAM mapping coordinates
     if (workers[path]) {
       return new Response(workers[path], { headers: { "Content-Type": "application/javascript" } });
     }
 
-    // Stream out the localized Regex environment token processor WASM context payload file structure
     if (path === "/onig.wasm") {
       return new Response(Bun.file(onigWasm), { headers: { "Content-Type": "application/wasm" } });
     }
