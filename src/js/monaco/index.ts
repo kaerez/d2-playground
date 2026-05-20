@@ -42,8 +42,8 @@ const fetchConfiguration = async (): Promise<monaco.languages.LanguageConfigurat
 };
 
 async function loadVSCodeOnigurumWASM(): Promise<Response | ArrayBuffer> {
-  // FIXED: Fetch goes up one directory relative to the compiled /assets/main.js file
-  const response = await fetch("../onig.wasm");
+  // FIXED: Changed absolute path to a relative path to respect GitHub Pages sub-directories
+  const response = await fetch("./onig.wasm");
   const contentType = response.headers.get("content-type");
   if (contentType === "application/wasm") {
     return response;
