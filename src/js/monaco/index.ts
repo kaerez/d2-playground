@@ -5,9 +5,10 @@ import { createOnigScanner, createOnigString, loadWASM } from "vscode-oniguruma"
 import { rehydrateRegexps } from "./configuration";
 import { registerLanguages } from "./register";
 import { SimpleLanguageInfoProvider, ScopeNameInfo, TextMateGrammar } from "./providers";
-import * as config from "../d2-vscode/language-configuration.json";
 
-import d2Grammar from "../d2-vscode/syntaxes/d2.tmLanguage.json";
+// CHANGED: These now point to the local copies inside the monaco folder
+import * as config from "./language-configuration.json";
+import d2Grammar from "./d2.tmLanguage.json";
 
 const languages: monaco.languages.ILanguageExtensionPoint[] = [
   {
@@ -51,7 +52,7 @@ const fetchGrammar = async (scopeName): Promise<TextMateGrammar> => {
       grammar = d2Grammar;
       break;
     // case "text.html.markdown.d2":
-    //   grammar = await import("~/d2-vscode/syntaxes/markdown.tmLanguage.json");
+    //   grammar = await import("./markdown.tmLanguage.json");
     //   break;
     // case "source.go":
     //   grammar = await import("shiki/languages/go.tmLanguage.json");
@@ -68,7 +69,7 @@ const fetchGrammar = async (scopeName): Promise<TextMateGrammar> => {
 
 const fetchConfiguration = async (): Promise<monaco.languages.LanguageConfiguration> => {
   rehydrateRegexps(config);
-  return config;
+  return config as monaco.languages.LanguageConfiguration;
 };
 
 // Taken from https://github.com/microsoft/vscode/blob/829230a5a83768a3494ebbc61144e7cde9105c73/src/vs/workbench/services/textMate/browser/textMateService.ts#L33-L40
