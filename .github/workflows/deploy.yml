@@ -43,8 +43,9 @@ jobs:
           TAG_ID="v1.0.${TIMESTAMP}"
           echo "RELEASE_TAG=${TAG_ID}" >> $GITHUB_ENV
           
-          # Inject cache buster strings directly into the compiled output HTML file
-          sed -i "s/__BUILD_VERSION__/${TIMESTAMP}/g" src/js/dist/index.html
+          # FIX: Vite strips query params during the build. 
+          # We must use sed on the final compiled output string to append the parameter.
+          sed -i "s/main.js\"/main.js?v=${TIMESTAMP}\"/g" src/js/dist/index.html
 
       - name: Cross-Compile Standalone Singular Binary Executables
         run: |
