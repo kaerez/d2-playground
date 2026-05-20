@@ -44,6 +44,7 @@ const fetchConfiguration = async (): Promise<monaco.languages.LanguageConfigurat
 };
 
 async function loadVSCodeOnigurumWASM(): Promise<Response | ArrayBuffer> {
+  // Pull from absolute public path so nested URL routing query strings do not break lookups
   const response = await fetch("/onig.wasm");
   const contentType = response.headers.get("content-type");
   if (contentType === "application/wasm") {
