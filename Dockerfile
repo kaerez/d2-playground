@@ -1,7 +1,7 @@
 FROM oven/bun:latest AS builder
 WORKDIR /app
 
-COPY package.json ./
+# FIX: Removed the failing root package.json copy command
 COPY src/js/package.json ./src/js/
 RUN cd src/js && bun install
 
