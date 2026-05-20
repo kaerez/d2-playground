@@ -16,7 +16,8 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "dist"), 
     emptyOutDir: true,
-    chunkSizeWarningLimit: 2000,
+    // FIXED: Increased to 15000 to silence the expected 11MB bundle warning
+    chunkSizeWarningLimit: 15000, 
     rollupOptions: {
       output: {
         entryFileNames: "assets/[name].js",
